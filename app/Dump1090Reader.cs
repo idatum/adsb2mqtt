@@ -146,7 +146,7 @@ namespace adsb2mqtt
         private static void HandleRecord(String record)
         {
             string[] recordSplit = record.Split(',');
-            if (recordSplit.Length < 1)
+            if (recordSplit.Length < 5)
             {
                 _tracing.Warning($"Invalid record: {record}");
                 return;
@@ -200,7 +200,10 @@ namespace adsb2mqtt
                         {
                             var recordArray = recordBytes.ToArray();
                             var record = Encoding.ASCII.GetString(recordArray, 0, recordArray.Length);
-                            HandleRecord(record);
+                            if (!String.IsNullOrEmpty(record))
+                            {
+                                HandleRecord(record);
+                            }
                             recordBytes.Clear();
                         }
                         else
