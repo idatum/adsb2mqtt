@@ -86,10 +86,10 @@ namespace adsb2mqtt
 
             // convert decimal degrees to radians 
             var latRad = Math.PI * latitude / 180.0;
-            var lngRad = Math.PI * longitude / 180.0;
+            var lonRad = Math.PI * longitude / 180.0;
             // haversine formula 
             var dlat = _baseLatitudeRad - latRad;
-            var dlon = _baseLongitudeRad - lngRad;
+            var dlon = _baseLongitudeRad - lonRad;
             var a = Math.Pow(Math.Sin(dlat / 2), 2) + Math.Cos(latRad) * Math.Cos(_baseLatitudeRad) * Math.Pow(Math.Sin(dlon / 2), 2);
             var c = 2 * Math.Asin(Math.Sqrt(a));
             // Radius of earth in nautical miles
