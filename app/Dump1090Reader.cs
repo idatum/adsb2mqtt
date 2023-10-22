@@ -409,7 +409,7 @@ namespace adsb2mqtt
                 catch (SocketException ex)
                 {
                     _tracing.Warning(ex.Message);
-                    System.Threading.Thread.Sleep(1000);
+                    System.Threading.Thread.Sleep(5000);
                 }
                 catch (Exception ex)
                 {
