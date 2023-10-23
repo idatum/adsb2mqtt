@@ -415,6 +415,7 @@ namespace adsb2mqtt
                 {
                     _tracing.Error(ex.ToString());
                     await DisconnectMqtt();
+                    throw;
                 }
             }
        }
