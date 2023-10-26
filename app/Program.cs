@@ -1,10 +1,20 @@
-﻿namespace adsb2mqtt
-{
-    class Program
+using adsb2mqtt;
+
+IHost host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices(services =>
     {
-        public static async Task Main(string[] _)
+        services.AddHostedService<Worker>();
+        services.AddSingleton<IFindAircraftType, FindAircraftType>();
+    })
+    .ConfigureLogging(logging =>
+    {
+        logging.AddSimpleConsole(options =>
         {
-            await Dump1090Reader.Process();
-        }
-    }
-}
+            options.SingleLine = true;
+            options.UseUtcTimestamp = false;
+            options.TimestampFormat = "HH:mm:ss ";
+        });
+    })
+    .Build();
+
+host.Run();
