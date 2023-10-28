@@ -88,51 +88,6 @@ public class Dump1090Reader
         }
     }
 
-    private void UpdateFlight(string icao, string[] recordSplit, Flight lastFlight, out Flight newflight)
-    {
-        newflight = lastFlight;
-        newflight.Icao = icao;
-        var logTime = recordSplit[7];
-        var logDate = recordSplit[6];
-        newflight.LogDateTime = DateTime.Parse($"{logDate} {logTime}").ToUniversalTime();
-        if (!string.IsNullOrEmpty(recordSplit[10]))
-            newflight.Callsign = recordSplit[10].Trim();
-        if (!string.IsNullOrEmpty(recordSplit[11]))
-            newflight.Altitude = recordSplit[11].Trim();
-        if (!string.IsNullOrEmpty(recordSplit[13]))
-            newflight.Direction = recordSplit[13].Trim();
-        if (!string.IsNullOrEmpty(recordSplit[14]))
-            newflight.Latitude = recordSplit[14].Trim();
-        if (!string.IsNullOrEmpty(recordSplit[15]))
-            newflight.Longitude = recordSplit[15].Trim();
-        if (string.IsNullOrEmpty(newflight.AircraftType))
-        {
-            newflight.AircraftType = _findAircraftType.Find(icao);
-        }
-    }
-
-    private void HandleRecord(String record)
-    {
-        string[] recordSplit = record.Split(',');
-        if (recordSplit.Length < 5)
-        {
-            _logger.LogWarning($"Invalid record: {record}");
-            return;
-        }
-        var msgType = recordSplit[0];
-        var transType = recordSplit[1];
-        var icao = recordSplit[4];
-        Flight lastFlight;
-        _icaoFlight.TryGetValue(icao, out lastFlight);
-        Flight flight;
-        UpdateFlight(icao, recordSplit, lastFlight, out flight);
-        _icaoFlight.AddOrUpdate(icao, flight, (key, val) => flight);
-        if (flight.Complete)
-        {
-            _trackedIcaoFlight.TryAdd(icao, flight);
-        }
-    }
-
     private bool MqttConnected()
     {
         if (_mqttClient == null)
@@ -253,6 +208,51 @@ public class Dump1090Reader
         await _mqttClient.DisconnectAsync();
     }
 
+    private void UpdateFlight(string icao, string[] recordSplit, Flight lastFlight, out Flight newflight)
+    {
+        newflight = lastFlight;
+        newflight.Icao = icao;
+        var logTime = recordSplit[7];
+        var logDate = recordSplit[6];
+        newflight.LogDateTime = DateTime.Parse($"{logDate} {logTime}").ToUniversalTime();
+        if (!string.IsNullOrEmpty(recordSplit[10]))
+            newflight.Callsign = recordSplit[10].Trim();
+        if (!string.IsNullOrEmpty(recordSplit[11]))
+            newflight.Altitude = recordSplit[11].Trim();
+        if (!string.IsNullOrEmpty(recordSplit[13]))
+            newflight.Direction = recordSplit[13].Trim();
+        if (!string.IsNullOrEmpty(recordSplit[14]))
+            newflight.Latitude = recordSplit[14].Trim();
+        if (!string.IsNullOrEmpty(recordSplit[15]))
+            newflight.Longitude = recordSplit[15].Trim();
+        if (string.IsNullOrEmpty(newflight.AircraftType))
+        {
+            newflight.AircraftType = _findAircraftType.Find(icao);
+        }
+    }
+
+    private void HandleRecord(String record)
+    {
+        string[] recordSplit = record.Split(',');
+        if (recordSplit.Length < 5)
+        {
+            _logger.LogInformation($"Invalid record: {record}");
+            return;
+        }
+        var msgType = recordSplit[0];
+        var transType = recordSplit[1];
+        var icao = recordSplit[4];
+        Flight lastFlight;
+        _icaoFlight.TryGetValue(icao, out lastFlight);
+        Flight flight;
+        UpdateFlight(icao, recordSplit, lastFlight, out flight);
+        _icaoFlight.AddOrUpdate(icao, flight, (key, val) => flight);
+        if (flight.Complete)
+        {
+            _trackedIcaoFlight.TryAdd(icao, flight);
+        }
+    }
+
     private void ReceiveDump1090(string server, int port, CancellationToken stoppingToken)
     {
         using (var socket = ConnectSocket(server, port))
@@ -277,7 +277,7 @@ public class Dump1090Reader
                     if ('\n' == readBuffer[i])
                     {
                         var recordArray = recordBytes.ToArray();
-                        var record = Encoding.ASCII.GetString(recordArray, 0, recordArray.Length);
+                        var record = Encoding.ASCII.GetString(recordArray, 0, recordArray.Length).Trim();
                         if (!String.IsNullOrEmpty(record))
                         {
                             HandleRecord(record);
