@@ -7,7 +7,6 @@
 **adsb2mqtt** has multiple settings you can set either direclty in appsettings.json or override with environment variables. I run it on a Docker container and use environment variables. See below for applications.
 Setting | Default | Description
 --- | --- | ---
-TRACE_LEVEL | Info | Tracing level: Debug, Verbose, Info, Warning, Error
 BEAST_HOST | localhost | dump1090 host
 BEAST_PORT | 30003 | dump1090 TCP BaseStation output port
 MQTT_SERVER | localhost | MQTT host
