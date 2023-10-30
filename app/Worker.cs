@@ -6,19 +6,25 @@ public class Worker : BackgroundService
     private readonly IFindAircraftType _findAircraftType;
     private readonly IConfiguration _configuration;
 
-    public Worker(ILogger<Worker> logger,
+    public Worker(IConfiguration configuration,
+                  ILogger<Worker> logger,
                   IFindAircraftType findAircraftType)
     {
+        if (configuration is null)
+        {
+            throw new ArgumentNullException(nameof(configuration));
+        }
+        if (logger is null)
+        {
+            throw new ArgumentNullException(nameof(logger));
+        }
+        if (findAircraftType is null)
+        {
+            throw new ArgumentNullException(nameof(findAircraftType));
+        }
+        _configuration = configuration;
         _logger = logger;
         _findAircraftType = findAircraftType;
-        _configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", optional:true, reloadOnChange:true)
-                .AddEnvironmentVariables()
-                .Build();
-        if (_configuration is null)
-        {
-            throw new InvalidOperationException("_configuration");
-        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

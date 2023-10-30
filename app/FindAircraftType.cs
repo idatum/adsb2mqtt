@@ -11,22 +11,26 @@ public class FindAircraftType : IFindAircraftType
     public FindAircraftType(ILogger<FindAircraftType> logger,
                             IConfiguration configuration)
     {
+        if (logger is null)
+        {
+            throw new ArgumentNullException(nameof(logger));
+        }
+        if (configuration is null)
+        {
+            throw new ArgumentNullException(nameof(configuration));
+        }
         _logger = logger;
         _configuration = configuration;
+        // dump1090 aircraft database path.
+        _aircraftDbPath = _configuration.GetValue<string>("AIRCRAFT_DB_PATH");
+        if (_aircraftDbPath is null)
+        {
+            throw new ArgumentNullException("AIRCRAFT_DB_PATH");
+        }
     }
 
     public string? Find(string icao)
     {
-        if (_aircraftDbPath is null)
-        {
-            // dump1090 aircraft database path.
-            _aircraftDbPath = _configuration.GetValue<string>("AIRCRAFT_DB_PATH");
-            if (_aircraftDbPath is null)
-            {
-                throw new ArgumentNullException("AIRCRAFT_DB_PATH");
-            }
-        }
-
         // Scan json files for aircraft type.
         for (int i = icao.Length; i >= 1; --i)
         {
