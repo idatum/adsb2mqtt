@@ -17,6 +17,7 @@ using MQTTnet.Client;
 using MQTTnet.Formatter;
 using MQTTnet.Protocol;
 using MQTTnet.Server;
+using MQTTnet.Exceptions;
 
 public class Dump1090Reader
 {
@@ -29,9 +30,9 @@ public class Dump1090Reader
     private ConcurrentDictionary<string, Flight> _icaoFlight = new ();
     private ConcurrentDictionary<string, Flight> _trackedIcaoFlight = new ();
     private IMqttClient? _mqttClient;
-    private IConfiguration? _configuration;
+    private readonly IConfiguration? _configuration;
     private readonly ILogger<Worker> _logger;
-    private IFindAircraftType _findAircraftType;
+    private readonly IFindAircraftType _findAircraftType;
 
     public Dump1090Reader(ILogger<Worker> logger,
                           IConfiguration configuration,
@@ -132,6 +133,10 @@ public class Dump1090Reader
         {
             await PublishRecordsAsync();
         }
+        catch (MqttClientDisconnectedException ex)
+        {
+            _logger.LogError(ex.ToString());
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex.ToString());
@@ -144,6 +149,11 @@ public class Dump1090Reader
         if (_mqttClient == null)
         {
             throw new InvalidOperationException("_mqttClient");
+        }
+        if (!MqttConnected())
+        {
+            _logger.LogDebug("MQTT not connected; skipping publish.");
+            return;
         }
         Flight flight;
         foreach (var icao in _trackedIcaoFlight.Keys)
@@ -255,39 +265,37 @@ public class Dump1090Reader
 
     private void ReceiveDump1090(string server, int port, CancellationToken stoppingToken)
     {
-        using (var socket = ConnectSocket(server, port))
+        using var socket = ConnectSocket(server, port);
+        if (socket == null)
         {
-            if (socket == null)
+            throw new ApplicationException("Socket connection failed");
+        }
+        var readBuffer = new Byte[1024];
+        int bytesRead = 0;
+        var recordBytes = new List<Byte>();
+        while (!stoppingToken.IsCancellationRequested && socket.Connected && MqttConnected())
+        {
+            bytesRead = socket.Receive(readBuffer);
+            if (0 == bytesRead)
             {
-                throw new ApplicationException("Connection failed");
+                _logger.LogInformation("Socket reconnecting.");
+                return;
             }
-            var readBuffer = new Byte[1024];
-            int bytesRead = 0;
-            var recordBytes = new List<Byte>();
-            while (!stoppingToken.IsCancellationRequested && socket.Connected && MqttConnected())
+            for (int i = 0; i < bytesRead; ++i)
             {
-                bytesRead = socket.Receive(readBuffer);
-                if (0 == bytesRead)
+                if ('\n' == readBuffer[i])
                 {
-                    _logger.LogInformation("Socket reconnecting.");
-                    return;
+                    var recordArray = recordBytes.ToArray();
+                    var record = Encoding.ASCII.GetString(recordArray, 0, recordArray.Length).Trim();
+                    if (!String.IsNullOrEmpty(record))
+                    {
+                        HandleRecord(record);
+                    }
+                    recordBytes.Clear();
                 }
-                for (int i = 0; i < bytesRead; ++i)
+                else
                 {
-                    if ('\n' == readBuffer[i])
-                    {
-                        var recordArray = recordBytes.ToArray();
-                        var record = Encoding.ASCII.GetString(recordArray, 0, recordArray.Length).Trim();
-                        if (!String.IsNullOrEmpty(record))
-                        {
-                            HandleRecord(record);
-                        }
-                        recordBytes.Clear();
-                    }
-                    else
-                    {
-                        recordBytes.Add(readBuffer[i]);
-                    }
+                    recordBytes.Add(readBuffer[i]);
                 }
             }
         }
@@ -313,38 +321,32 @@ public class Dump1090Reader
         var beastHost = _configuration["BEAST_HOST"];
         if (beastHost is null)
         {
-            throw new ArgumentNullException("BEAST_HOST");
+            throw new InvalidOperationException("BEAST_HOST");
         }
         int beastPort = _configuration.GetValue<int>("BEAST_PORT");
         // MQTT
         _topicBase = _configuration["TOPIC_BASE"];
         if (_topicBase is null)
         {
-            throw new ArgumentNullException("_topicBase");
+            throw new InvalidOperationException("_topicBase");
         }
         var mqttUsername = _configuration["MQTT_USERNAME"];
         if (mqttUsername is null)
         {
-            throw new ArgumentNullException("MQTT_USERNAME");
+            throw new InvalidOperationException("MQTT_USERNAME");
         }
         var mqttPassword = _configuration["MQTT_PASSWORD"];
         if (mqttPassword is null)
         {
-            throw new ArgumentNullException("MQTT_USERNAME");
+            throw new InvalidOperationException("MQTT_USERNAME");
         }
         var mqttServer = _configuration["MQTT_SERVER"];
         if (mqttServer is null)
         {
-            throw new ArgumentNullException("MQTT_SERVER");
+            throw new InvalidOperationException("MQTT_SERVER");
         }
         int mqttPort = _configuration.GetValue<int>("MQTT_PORT");
         bool mqttUseTls = _configuration.GetValue<bool>("MQTT_USE_TLS");
-
-        if (!await ConnectMqtt(mqttUsername, mqttPassword, mqttServer, mqttPort, mqttUseTls))
-        {
-            _logger.LogInformation("Could not connect to MQTT");
-            return;
-        }
 
         var publishTimer = new Timer();
         publishTimer.Elapsed += new ElapsedEventHandler(PublishRecordsCallback);
@@ -358,16 +360,28 @@ public class Dump1090Reader
         groomTimer.AutoReset = true;
         groomTimer.Enabled = true;
 
-        while (!stoppingToken.IsCancellationRequested && MqttConnected())
+        while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                if (!await ConnectMqtt(mqttUsername, mqttPassword, mqttServer, mqttPort, mqttUseTls))
+                {
+                    _logger.LogInformation("Could not connect to MQTT");
+                    await Task.Delay(5000);
+                    continue;
+                }
                 ReceiveDump1090(beastHost, beastPort, stoppingToken);
             }
             catch (SocketException ex)
             {
                 _logger.LogWarning(ex.Message);
-                System.Threading.Thread.Sleep(5000);
+                await Task.Delay(5000);
+            }
+            catch (MqttCommunicationException ex)
+            {
+                _logger.LogError(ex.ToString());
+                await DisconnectMqtt();
+                await Task.Delay(5000);
             }
             catch (Exception ex)
             {

@@ -25,7 +25,7 @@ public class FindAircraftType : IFindAircraftType
         _aircraftDbPath = _configuration.GetValue<string>("AIRCRAFT_DB_PATH");
         if (_aircraftDbPath is null)
         {
-            throw new ArgumentNullException("AIRCRAFT_DB_PATH");
+            throw new InvalidOperationException("AIRCRAFT_DB_PATH");
         }
     }
 
