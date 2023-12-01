@@ -63,7 +63,7 @@ public class FindAircraftType : IFindAircraftType
                 _logger.LogDebug($"Aircraft type: {aircraftType}");
                 return aircraftType;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex.ToString());
                 continue;

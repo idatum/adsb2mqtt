@@ -27,8 +27,8 @@ public class Dump1090Reader
     private double _baseLatitudeRad;
     private double _baseLongitudeRad;
     private string? _topicBase;
-    private ConcurrentDictionary<string, Flight> _icaoFlight = new ();
-    private ConcurrentDictionary<string, Flight> _trackedIcaoFlight = new ();
+    private ConcurrentDictionary<string, Flight> _icaoFlight = new();
+    private ConcurrentDictionary<string, Flight> _trackedIcaoFlight = new();
     private IMqttClient? _mqttClient;
     private readonly IConfiguration? _configuration;
     private readonly ILogger<Worker> _logger;
@@ -105,7 +105,7 @@ public class Dump1090Reader
         var hostEntry = Dns.GetHostEntry(server);
 
         // Loop through the AddressList to obtain the supported AddressFamily.
-        foreach(IPAddress address in hostEntry.AddressList)
+        foreach (IPAddress address in hostEntry.AddressList)
         {
             IPEndPoint ipe = new IPEndPoint(address, port);
             var tempSocket =
@@ -113,7 +113,7 @@ public class Dump1090Reader
 
             tempSocket.Connect(ipe);
 
-            if(tempSocket.Connected)
+            if (tempSocket.Connected)
             {
                 socket = tempSocket;
                 break;

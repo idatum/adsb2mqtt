@@ -22,7 +22,7 @@ namespace adsb2mqtt
         public bool Complete
         {
             get
-            { 
+            {
                 return !(string.IsNullOrEmpty(Icao) ||
                         string.IsNullOrEmpty(Altitude) ||
                         string.IsNullOrEmpty(Direction) ||

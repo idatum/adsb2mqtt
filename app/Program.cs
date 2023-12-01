@@ -1,7 +1,7 @@
 using adsb2mqtt;
 
 var configuration = new ConfigurationBuilder()
-        .AddJsonFile("appsettings.json", optional:true, reloadOnChange:true)
+        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
         .AddEnvironmentVariables()
         .Build();
 
@@ -28,3 +28,4 @@ IHost host = Host.CreateDefaultBuilder(args)
     .Build();
 
 host.Run();
+
