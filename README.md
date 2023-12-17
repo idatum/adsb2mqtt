@@ -50,36 +50,5 @@ I keep RADIUS_NM pretty short, basically I want to see the aircraft enough to ro
 
 You don't need to set LATITUDE and LONGITUDE to your precise location (unlike with say dump1090-fa). Since I usually view planes on my porch looking North, I increase the LATITUDE a bit since my house blocks my view of planes approaching from the South.
 
-## NetBSD 10_beta on a Pine64 Rock64 running [dump1090-fa](https://github.com/flightaware/dump1090)
-I recently replaced an aging RPi3 running [piaware](https://github.com/flightaware/piaware) with a 4gb Rock64 running dump1090-fa. To build dump1090-fa on NetBSD 10 there are a couple changes needed to the Makefile; here's the diff:
-```diff --git a/Makefile b/Makefile
-index 8fd5081..5e1d1f9 100644
---- a/Makefile
-+++ b/Makefile
-@@ -3,8 +3,8 @@ PROGNAME=dump1090
- DUMP1090_VERSION ?= unknown
-
- CFLAGS ?= -O3 -g
--DUMP1090_CFLAGS := -std=c11 -fno-common -Wall -Wmissing-declarations -Werror -W
--DUMP1090_CPPFLAGS := -I. -D_POSIX_C_SOURCE=200112L -DMODES_DUMP1090_VERSION=\"$(DUMP1090_VERSION)\" -DMODES_DUMP1090_VARIANT=\"dump1090-fa\"
-+DUMP1090_CFLAGS := -std=c11 -fno-common -Wall -Wmissing-declarations -W
-+DUMP1090_CPPFLAGS := -I. -D_POSIX_C_SOURCE=200112L -DMODES_DUMP1090_VERSION=\"$(DUMP1090_VERSION)\" -DMODES_DUMP1090_VARIANT=\"dump1090-fa\" -D_NETBSD_SOURCE
-
- LIBS = -lpthread -lm
- SDR_OBJ = cpu.o sdr.o fifo.o sdr_ifile.o dsp/helpers/tables.o
- ```
- I also now run piaware in a Docker container on a seperate server and keep the load on the Rock64 minimized. The Rock64 is housed in an outside enclosure close to my antennas. Hopefully the Rock64's eMMC holds up better than the RPi3's SD card.
-
- In short, dump1090-fa on NetBSD looks reasonable. But I've had less success trying to run [rtl_433](https://github.com/merbanan/rtl_433) on NetBSD. Looks like it's related to lack of async read support:
- ```rtl_433 version 22.11-222-g66bc9392 branch master at 202310181750 inputs file rtl_tcp RTL-SDR with TLS
-Found Rafael Micro R820T tuner
-[SDR] Using device 0: Generic, RTL2832U, SN: xxx, "Generic RTL2832U"
-Exact sample rate is: 250000.000414 Hz
-[R82XX] PLL not locked!
-[Input] Input device start failed, exiting!
-[rtlsdr_read_loop] LIBUSB_ERROR_NOT_SUPPORTED: Operation not supported or unimplemented on this platform! Check your RTL-SDR dongle, USB cables, and power supply.
-[SDR] async read failed (-12).
-assertion "__libc_mutex_lock(mutex) == 0" failed: file "os/threads_posix.h", line 46, function "usbi_mutex_lock"
-zsh: abort (core dumped)
-```
-Oh well, at least I can get it to build. This one is a longer term project.
+## NetBSD 10_RC on a Pine64 Rock64 running [dump1090-fa](https://github.com/flightaware/dump1090)
+I recently replaced an aging RPi3 running [piaware](https://github.com/flightaware/piaware) with a 4gb Rock64 running dump1090-fa. Here are details for getting this to run: [rtl-sdr-bsd](https://github.com/idatum/rtl-sdr-bsd).
