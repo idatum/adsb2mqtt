@@ -51,4 +51,4 @@ I keep RADIUS_NM pretty short, basically I want to see the aircraft enough to ro
 You don't need to set LATITUDE and LONGITUDE to your precise location (unlike with say dump1090-fa). Since I usually view planes on my porch looking North, I increase the LATITUDE a bit since my house blocks my view of planes approaching from the South.
 
 ## NetBSD 10_RC on a Pine64 Rock64 running [dump1090-fa](https://github.com/flightaware/dump1090)
-I recently replaced an aging RPi3 running [piaware](https://github.com/flightaware/piaware) with a 4gb Rock64 running dump1090-fa. Here are details for getting this to run: [rtl-sdr-bsd](https://github.com/idatum/rtl-sdr-bsd).
+I recently replaced an aging RPi3 running [piaware](https://github.com/flightaware/piaware) with a 4gb Rock64 running dump1090-fa. Here's a repo for getting this to run: [rtl-sdr-bsd](https://github.com/idatum/rtl-sdr-bsd). Here are more details of the overall project: [Experimenting with RTL-SDR on NetBSD 10](https://www.idatum.net/experimenting-with-rtl-sdr-on-netbsd-10.html).
