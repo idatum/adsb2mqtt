@@ -2,26 +2,23 @@ import logging
 import json
 import os
 import http.client
-from base64 import b64encode
 
 class AdsbSpeech:
     def __init__(self, 
                  log=logging.getLogger('adsb_speech'),
                  local_city="",
                  skip_general_aviation=False,
-                 aeroapi_user=None,
                  aeroapi_key=None,
                  aircraft_dir=None,
-                 cache_dir='/var/tmp/flights'):
+                 flight_cache_dir='/var/tmp/flights'):
         self.log = log
         self.flight_origin_dest_type = {}
         self.exclude_icao = set()
         self.unknown_origin = 'Unknown'
         self._local_city = local_city
-        self._aeroapi_user = aeroapi_user
         self._aeroapi_key = aeroapi_key
         self._aircraft_dir = aircraft_dir
-        self._cache_dir = cache_dir
+        self._flight_cache_dir = flight_cache_dir
         self._skip_general_aviation = skip_general_aviation
 
     @property
@@ -80,52 +77,43 @@ class AdsbSpeech:
         return text
 
     def _get_aeroapi_jresult(self, url):
-        userPass = f'{self._aeroapi_user}:{self._aeroapi_key}'
-        basicAuth = b64encode(userPass.encode()).decode('ascii')
-        headers = {'Authorization' : f'Basic {basicAuth}'}
-        h = http.client.HTTPSConnection('flightxml.flightaware.com', timeout=1)
+        headers = {'x-apikey' : self._aeroapi_key}
+        self.log.debug(headers)
+        h = http.client.HTTPSConnection('aeroapi.flightaware.com', timeout=1)
         h.request("GET", url, headers=headers)
         resp = h.getresponse().read().decode('utf-8')
         h.close()
+        self.log.debug(resp)
         return json.loads(resp)
 
-    def _get_aeroapi_flightex(self, ident):
-        self.log.warning(f"READING: AeroAPI flight info for {ident}")
-        return self._get_aeroapi_jresult(f'/json/FlightXML2/FlightInfoEx?ident={ident}&howMany=1')
+    def _get_aeroapi_flight(self, ident):
+        self.log.warning(f'READING: AeroAPI flight info for {ident}')
+        return self._get_aeroapi_jresult(f'/aeroapi/flights/{ident}')
 
     def _get_aeroapi_aircrafttype(self, aircraft_type):
-        self.log.warning(f"READING: AeroAPI aircraft type info for {aircraft_type}")
-        return self._get_aeroapi_jresult(f'/json/FlightXML2/AircraftType?type={aircraft_type}')
+        self.log.warning(f'READING: AeroAPI aircraft type info for {aircraft_type}')
+        return self._get_aeroapi_jresult(f'/aeroapi/aircraft/types/{aircraft_type}')
 
     def _get_aeroapi_airlineinfo(self, airline_code):
         self.log.warning(f"READING: AeroAPI airline info for {airline_code}")
-        return self._get_aeroapi_jresult(f'/json/FlightXML2/AirlineInfo?airlineCode={airline_code}')
+        return self._get_aeroapi_jresult(f'/aeroapi/operators/{airline_code}')
 
     def _write_flightinfoex(self, fn, ident, flightInfo):
         with open(fn, 'w+') as f:
             if 'error' in flightInfo:
-                trimmedInfo = {'FlightInfoExResult': {'flights':
+                trimmedInfo = {{'flights':
                                 [{'ident': ident,
-                                    'aircrafttype': '',
-                                    'origin': '',
-                                    'destination': '',
-                                    'originName': '',
-                                    'originCity': self.unknown_origin,
-                                    'destinationName': '',
-                                    'destinationCity': self.unknown_origin
+                                    'aircraf_ttype': '',
+                                    'origin': {'name': '', 'city': self._unknown_origin, 'code': ''},
+                                    'destination': {'name': '', 'city': self._unknown_origin, 'code': ''}
                                 }]}}
             else:
-                flight0 = flightInfo['FlightInfoExResult']['flights'][0]
-                trimmedInfo = {'FlightInfoExResult': {'flights':
+                flight0 = flightInfo['flights'][0]
+                trimmedInfo = {'flights':
                                 [{'ident': ident,
-                                    'aircrafttype': flight0['aircrafttype'] if 'aircrafttype' in flight0 else '',
-                                    'origin': flight0['origin'],
-                                    'destination': flight0['destination'],
-                                    'originName': flight0['originName'],
-                                    'originCity': flight0['originCity'],
-                                    'destinationName': flight0['destinationName'],
-                                    'destinationCity': flight0['destinationCity']
-                                }]}}
+                                    'aircraft_type': flight0['aircraft_type'] if 'aircraft_type' in flight0 else '',
+                                    'origin': {'code': flight0['origin']['code'], 'name': flight0['origin']['name'], 'city': flight0['origin']['city']},
+                                    'destination': {'code': flight0['destination']['code'], 'name': flight0['destination']['name'], 'city': flight0['destination']['city']}}]}
             f.write(json.dumps(trimmedInfo))
 
     def _get_aircraft_type_name(self, aircrafttype):
@@ -144,17 +132,14 @@ class AdsbSpeech:
                 fa.write(json.dumps(jaircraft))
         else:
             return aircrafttype
-        jresult = jaircraft['AircraftTypeResult']
-        manufacturer = jresult['manufacturer']
+        manufacturer = jaircraft['manufacturer']
         if not manufacturer:
             return None
-        return f"{manufacturer} {jresult['type']}"
+        return f"{manufacturer} {jaircraft['type']}"
 
     def _get_airline_name(self, airline_code, short=False):
         fn = os.path.join(self._aircraft_dir, f'airline/{airline_code}.json')
-        self.log.info(self._aircraft_dir)
-        self.log.info(self._aircraft_dir)
-        self.log.info(fn)
+        self.log.debug(fn)
         jairline = None
         if os.path.isfile(fn):
             with open(fn) as f:
@@ -171,12 +156,11 @@ class AdsbSpeech:
                 fa.write(json.dumps(jairline))
         else:
             return None
-        if 'AirlineInfoResult' not in jairline:
+        if 'name' not in jairline:
             return None
-        jresult = jairline['AirlineInfoResult']
-        shortname = jresult['shortname']
-        name = shortname if shortname else jresult['name']
-        country = jresult['country']
+        shortname = jairline['shortname']
+        name = shortname if shortname else jairline['name']
+        country = jairline['country']
         if country and not short:
             return f"{name}, {country}"
         else:
@@ -185,19 +169,19 @@ class AdsbSpeech:
     def _parse_origin_dest_type(self, flightInfo, origin_dest_type):
         if 'error' in flightInfo:
             return
-        flight = flightInfo['FlightInfoExResult']['flights'][0]
-        if 'originCity' in flight:
-            origin_dest_type[0] = flight['originCity'].split(',')[0].replace('/', ' ')
-        if 'destinationCity' in flight:
-            origin_dest_type[1] = flight['destinationCity'].split(',')[0].replace('/', ' ')
-        if 'aircrafttype' in flight:
-            origin_dest_type[2] = flight['aircrafttype']
+        flight = flightInfo['flights'][0]
+        if 'origin' in flight:
+            origin_dest_type[0] = flight['origin']['city'].split(',')[0].replace('/', ' ')
+        if 'destination' in flight:
+            origin_dest_type[1] = flight['destination']['city'].split(',')[0].replace('/', ' ')
+        if 'aircraft_type' in flight:
+            origin_dest_type[2] = flight['aircraft_type']
 
     def _get_flight_origin_dest_type(self, ident):
         origin_dest_type = [None, None, None]
         if ident in self.flight_origin_dest_type:
             return self.flight_origin_dest_type[ident]
-        fn = os.path.join(self._cache_dir, f'{ident}.json')
+        fn = os.path.join(self._flight_cache_dir, f'{ident}.json')
         try:
             if os.path.isfile(fn):
                 self.log.debug(f'READING: Existing flight info for {ident}')
@@ -207,7 +191,7 @@ class AdsbSpeech:
                     self._parse_origin_dest_type(loadedFlight, origin_dest_type)
                 self.flight_origin_dest_type[ident] = origin_dest_type
             elif self._aeroapi_key:
-                flightInfo = self._get_aeroapi_flightex(ident)
+                flightInfo = self._get_aeroapi_flight(ident)
                 self.log.info(flightInfo)
                 self._parse_origin_dest_type(flightInfo, origin_dest_type)
                 self.flight_origin_dest_type[ident] = origin_dest_type
