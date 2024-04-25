@@ -1,5 +1,5 @@
 # https://hub.docker.com/_/microsoft-dotnet-sdk/
-FROM mcr.microsoft.com/dotnet/sdk:7.0-alpine3.18 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine3.19 AS build
 
 COPY /app /app
 WORKDIR /app
@@ -12,7 +12,7 @@ RUN dotnet restore .
 RUN dotnet publish -c Release -o out
 
 # https://hub.docker.com/_/microsoft-dotnet-runtime/
-FROM mcr.microsoft.com/dotnet/runtime:7.0-alpine3.18 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:8.0-alpine3.19 AS runtime
 RUN addgroup -g 1010 adsb2mqtt && \
     adduser -S -u 1010 -G adsb2mqtt -s /bin/sh adsb2mqtt
 WORKDIR /app
