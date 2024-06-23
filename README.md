@@ -20,7 +20,7 @@ LONGITUDE | -122.2821 | Set to your longitude
 RADIUS_NM | 3.1 | Nautical mile radial distance threshold to publish flight
 AIRCRAFT_DB_PATH | /usr/share/dump1090-fa/html/db | [dump1090-fa flight database](https://github.com/flightaware/dump1090/tree/master/public_html/db)
 
-I've tested both local MQTT and remote MQTTS Mosquitto hosts. The included Dockerfile is for an AMD64 server but I've run this standalone on an RPi3. [Link](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script) to the .NET 7 install script instructions, including for a Raspbery Pi running Linux.
+I've tested both local MQTT and remote MQTTS Mosquitto hosts. The included Dockerfile is for an AMD64 server but I've run this standalone on an RPi3. [Link](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script) to the .NET install script instructions, including for a Raspbery Pi running Linux.
 
 
 My main application of **adsb2mqtt** is a seperate MQTT Python client that uses text-to-speech (TTS) to periodically translate the ADSB/flight payload to a wave file using [Microsoft Cognitive Services](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/text-to-speech). Many other TTS options exist. Then publish another MQTT topic with the payload containing the wave filename.
@@ -51,4 +51,7 @@ I keep RADIUS_NM pretty short, basically I want to see the aircraft enough to ro
 You don't need to set LATITUDE and LONGITUDE to your precise location (unlike with say dump1090-fa). Since I usually view planes on my porch looking North, I increase the LATITUDE a bit since my house blocks my view of planes approaching from the South.
 
 ## NetBSD 10_RC on a Pine64 Rock64 running [dump1090-fa](https://github.com/flightaware/dump1090)
-I recently replaced an aging RPi3 running [piaware](https://github.com/flightaware/piaware) with a 4gb Rock64 running dump1090-fa. Here's a repo for getting this to run: [rtl-sdr-bsd](https://github.com/idatum/rtl-sdr-bsd). Here are more details of the overall project: [Experimenting with RTL-SDR on NetBSD 10](https://www.idatum.net/experimenting-with-rtl-sdr-on-netbsd-10.html).
+I replaced an aging RPi3 running [piaware](https://github.com/flightaware/piaware) with a 4gb Rock64 running dump1090-fa. Here's a repo for getting this to run: [rtl-sdr-bsd](https://github.com/idatum/rtl-sdr-bsd). Here are more details of the overall project: [Experimenting with RTL-SDR on NetBSD 10](https://www.idatum.net/experimenting-with-rtl-sdr-on-netbsd-10.html).
+
+## FreeBSD 14 on the Pine64 running [dump1090-fa](https://github.com/flightaware/dump1090)
+I've since switched from NetBSD 10 to running FreeBSD 14 on the Rock64 device and this resulted in a more stable host for dump1090. It's mainly about better support for RTL-SDR generally with USB on FreeBSD. Regardless of your O/S choice, adsb2mqtt should be able to connect to dump1090 and generate MQTT messages.

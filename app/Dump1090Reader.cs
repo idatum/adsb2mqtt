@@ -1,6 +1,6 @@
 namespace adsb2mqtt;
+
 using System;
-using System.Diagnostics;
 using System.Text;
 using System.Net;
 using System.Net.Sockets;
@@ -8,8 +8,6 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using System.Timers;
-using System.IO;
-using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 
 using MQTTnet;
