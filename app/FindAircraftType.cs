@@ -1,32 +1,21 @@
 namespace adsb2mqtt;
-
 using System.Text.Json;
 
 public class FindAircraftType : IFindAircraftType
 {
     private readonly ILogger<FindAircraftType> _logger;
     private readonly IConfiguration _configuration;
-    private string? _aircraftDbPath;
+    private readonly string? _aircraftDbPath;
 
     public FindAircraftType(ILogger<FindAircraftType> logger,
                             IConfiguration configuration)
     {
-        if (logger is null)
-        {
-            throw new ArgumentNullException(nameof(logger));
-        }
-        if (configuration is null)
-        {
-            throw new ArgumentNullException(nameof(configuration));
-        }
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(configuration);
         _logger = logger;
         _configuration = configuration;
         // dump1090 aircraft database path.
-        _aircraftDbPath = _configuration.GetValue<string>("AIRCRAFT_DB_PATH");
-        if (_aircraftDbPath is null)
-        {
-            throw new InvalidOperationException("AIRCRAFT_DB_PATH");
-        }
+        _aircraftDbPath = _configuration.GetValue<string>("AIRCRAFT_DB_PATH") ?? throw new InvalidOperationException("AIRCRAFT_DB_PATH");
     }
 
     public string? Find(string icao)
@@ -38,38 +27,36 @@ public class FindAircraftType : IFindAircraftType
             JsonDocument jsonDoc;
             try
             {
-                var filename = $"{_aircraftDbPath}/{icao.Substring(0, i)}.json";
+                var filename = $"{_aircraftDbPath}/{icao[..i]}.json";
                 if (!File.Exists(filename))
                 {
                     continue;
                 }
-                _logger.LogDebug($"Reading {filename}.");
+                _logger.LogDebug("Reading {filename}.", filename);
                 jsonText = File.ReadAllText(filename);
                 jsonDoc = JsonDocument.Parse(jsonText);
-                JsonElement icaoElement;
-                if (!jsonDoc.RootElement.TryGetProperty(icao.Substring(i), out icaoElement))
+                if (!jsonDoc.RootElement.TryGetProperty(icao.Substring(i), out JsonElement icaoElement))
                 {
-                    _logger.LogDebug($"No property {icao.Substring(i)}.");
+                    _logger.LogDebug("No property {icao[i..]}.", icao[i..]);
                     continue;
                 }
-                _logger.LogDebug($"Found icao element {icao.Substring(i)} in {filename}.");
-                JsonElement aircraftTypeElement;
-                if (!icaoElement.TryGetProperty("t", out aircraftTypeElement))
+                _logger.LogDebug("Found icao element {icao[..i]} in {filename}.", icao[i..], filename);
+                if (!icaoElement.TryGetProperty("t", out JsonElement aircraftTypeElement))
                 {
                     _logger.LogDebug("No property type property.");
                     continue;
                 }
                 var aircraftType = aircraftTypeElement.GetString();
-                _logger.LogDebug($"Aircraft type: {aircraftType}");
+                _logger.LogDebug("Aircraft type: {aircraftType}", aircraftType);
                 return aircraftType;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.ToString());
+                _logger.LogError("{ex}", ex);
                 continue;
             }
         }
-        _logger.LogDebug($"No aircraft info for {icao}.");
+        _logger.LogDebug("No aircraft info for {icao}.", icao);
 
         return string.Empty;
     }

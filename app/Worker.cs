@@ -10,18 +10,9 @@ public class Worker : BackgroundService
                   ILogger<Worker> logger,
                   IFindAircraftType findAircraftType)
     {
-        if (configuration is null)
-        {
-            throw new ArgumentNullException(nameof(configuration));
-        }
-        if (logger is null)
-        {
-            throw new ArgumentNullException(nameof(logger));
-        }
-        if (findAircraftType is null)
-        {
-            throw new ArgumentNullException(nameof(findAircraftType));
-        }
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(findAircraftType);
         _configuration = configuration;
         _logger = logger;
         _findAircraftType = findAircraftType;

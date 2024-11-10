@@ -9,6 +9,7 @@ using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using System.Timers;
 using Microsoft.Extensions.Configuration;
+using System.Text.Json;
 
 using MQTTnet;
 using MQTTnet.Client;
@@ -36,18 +37,9 @@ public class Dump1090Reader
                           IConfiguration configuration,
                           IFindAircraftType findAircraftType)
     {
-        if (logger is null)
-        {
-            throw new ArgumentNullException("logger");
-        }
-        if (configuration is null)
-        {
-            throw new ArgumentNullException("configuration");
-        }
-        if (findAircraftType is null)
-        {
-            throw new ArgumentNullException("findAircraftType");
-        }
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(findAircraftType);
         _logger = logger;
         _configuration = configuration;
         _findAircraftType = findAircraftType;
@@ -79,10 +71,10 @@ public class Dump1090Reader
 
         foreach (var icao in staleFlights)
         {
-            Flight staleFlight;
-            if (!_icaoFlight.TryRemove(icao, out staleFlight))
+            if (!_icaoFlight.TryRemove(icao, out Flight staleFlight))
             {
-                _logger.LogInformation($"Unable to drop stale flight {staleFlight.Icao} last seen {staleFlight.LogDateTime} UTC");
+                _logger.LogInformation("Unable to drop stale flight {staleFlight.Icao} last seen {staleFlight.LogDateTime} UTC",
+                                        staleFlight.Icao, staleFlight.LogDateTime);
             }
         }
     }
@@ -105,7 +97,7 @@ public class Dump1090Reader
         // Loop through the AddressList to obtain the supported AddressFamily.
         foreach (IPAddress address in hostEntry.AddressList)
         {
-            IPEndPoint ipe = new IPEndPoint(address, port);
+            IPEndPoint ipe = new(address, port);
             var tempSocket =
                 new Socket(ipe.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
@@ -133,11 +125,11 @@ public class Dump1090Reader
         }
         catch (MqttClientDisconnectedException ex)
         {
-            _logger.LogError(ex.ToString());
+            _logger.LogError("{ex}", ex);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex.ToString());
+            _logger.LogError("{ex}", ex);
             throw;
         }
     }
@@ -153,26 +145,35 @@ public class Dump1090Reader
             _logger.LogDebug("MQTT not connected; skipping publish.");
             return;
         }
-        Flight flight;
         foreach (var icao in _trackedIcaoFlight.Keys)
         {
-            if (!_trackedIcaoFlight.TryRemove(icao, out flight))
+            if (!_trackedIcaoFlight.TryRemove(icao, out Flight flight))
             {
                 continue;
             }
             var nm = GetNauticalMiles(double.Parse(flight.Latitude), double.Parse(flight.Longitude));
             if (nm < _radiusNauticalMiles)
             {
-                var payloadText = $"{{ \"icao\":\"{flight.Icao}\",\"flt\":\"{flight.Callsign}\"," +
-                    $"\"alt\":{flight.Altitude},\"dir\":{flight.Direction},\"lat\":{flight.Latitude}," +
-                    $"\"lng\":{flight.Longitude},\"t\":\"{flight.AircraftType}\",\"nm\":{nm} }}";
+                var flightPayload = new FlightPayload
+                {
+                    icao = flight.Icao,
+                    flt = flight.Callsign,
+                    alt = int.Parse(flight.Altitude),
+                    dir = int.Parse(flight.Direction),
+                    lat = double.Parse(flight.Latitude),
+                    lng = double.Parse(flight.Longitude),
+                    t = flight.AircraftType ?? string.Empty,
+                    nm = nm
+                };
+                string payloadText = JsonSerializer.Serialize(flightPayload);
                 var payload = Encoding.UTF8.GetBytes(payloadText);
+                _logger.LogDebug("{payloadText}", payloadText);
                 var message = new MqttApplicationMessageBuilder()
                                     .WithTopic($"{_topicBase}/{icao}")
                                     .WithPayload(payload)
                                     .WithQualityOfServiceLevel(MqttQualityOfServiceLevel
                                     .AtLeastOnce).Build();
-                var pubResult = await _mqttClient.PublishAsync(message);
+                await _mqttClient.PublishAsync(message);
             }
         }
     }
@@ -244,16 +245,14 @@ public class Dump1090Reader
         string[] recordSplit = record.Split(',');
         if (recordSplit.Length < 5)
         {
-            _logger.LogInformation($"Invalid record: {record}");
+            _logger.LogInformation("Invalid record: {record}", record);
             return;
         }
         var msgType = recordSplit[0];
         var transType = recordSplit[1];
         var icao = recordSplit[4];
-        Flight lastFlight;
-        _icaoFlight.TryGetValue(icao, out lastFlight);
-        Flight flight;
-        UpdateFlight(icao, recordSplit, lastFlight, out flight);
+        _icaoFlight.TryGetValue(icao, out Flight lastFlight);
+        UpdateFlight(icao, recordSplit, lastFlight, out Flight flight);
         _icaoFlight.AddOrUpdate(icao, flight, (key, val) => flight);
         if (flight.Complete)
         {
@@ -263,11 +262,7 @@ public class Dump1090Reader
 
     private void ReceiveDump1090(string server, int port, CancellationToken stoppingToken)
     {
-        using var socket = ConnectSocket(server, port);
-        if (socket == null)
-        {
-            throw new ApplicationException("Socket connection failed");
-        }
+        using var socket = ConnectSocket(server, port) ?? throw new ApplicationException("Socket connection failed");
         var readBuffer = new Byte[1024];
         int bytesRead = 0;
         var recordBytes = new List<Byte>();
@@ -316,33 +311,13 @@ public class Dump1090Reader
         _baseLatitudeRad = _configuration.GetValue<double>("LATITUDE") * Math.PI / 180.0;
         _baseLongitudeRad = _configuration.GetValue<double>("LONGITUDE") * Math.PI / 180.0;
         // TCP BaseStation output host and port.
-        var beastHost = _configuration["BEAST_HOST"];
-        if (beastHost is null)
-        {
-            throw new InvalidOperationException("BEAST_HOST");
-        }
+        var beastHost = _configuration["BEAST_HOST"] ?? throw new InvalidOperationException("BEAST_HOST");
         int beastPort = _configuration.GetValue<int>("BEAST_PORT");
         // MQTT
-        _topicBase = _configuration["TOPIC_BASE"];
-        if (_topicBase is null)
-        {
-            throw new InvalidOperationException("_topicBase");
-        }
-        var mqttUsername = _configuration["MQTT_USERNAME"];
-        if (mqttUsername is null)
-        {
-            throw new InvalidOperationException("MQTT_USERNAME");
-        }
-        var mqttPassword = _configuration["MQTT_PASSWORD"];
-        if (mqttPassword is null)
-        {
-            throw new InvalidOperationException("MQTT_USERNAME");
-        }
-        var mqttServer = _configuration["MQTT_SERVER"];
-        if (mqttServer is null)
-        {
-            throw new InvalidOperationException("MQTT_SERVER");
-        }
+        _topicBase = _configuration["TOPIC_BASE"] ?? throw new InvalidOperationException("_topicBase");
+        var mqttUsername = _configuration["MQTT_USERNAME"] ?? throw new InvalidOperationException("MQTT_USERNAME");
+        var mqttPassword = _configuration["MQTT_PASSWORD"] ?? throw new InvalidOperationException("MQTT_USERNAME");
+        var mqttServer = _configuration["MQTT_SERVER"] ?? throw new InvalidOperationException("MQTT_SERVER");
         int mqttPort = _configuration.GetValue<int>("MQTT_PORT");
         bool mqttUseTls = _configuration.GetValue<bool>("MQTT_USE_TLS");
 
@@ -365,25 +340,25 @@ public class Dump1090Reader
                 if (!await ConnectMqtt(mqttUsername, mqttPassword, mqttServer, mqttPort, mqttUseTls))
                 {
                     _logger.LogInformation("Could not connect to MQTT");
-                    await Task.Delay(5000);
+                    await Task.Delay(5000, stoppingToken);
                     continue;
                 }
                 ReceiveDump1090(beastHost, beastPort, stoppingToken);
             }
             catch (SocketException ex)
             {
-                _logger.LogWarning(ex.Message);
-                await Task.Delay(5000);
+                _logger.LogWarning("{ex.Message}", ex.Message);
+                await Task.Delay(5000, stoppingToken);
             }
             catch (MqttCommunicationException ex)
             {
-                _logger.LogError(ex.ToString());
+                _logger.LogError("{ex}", ex);
                 await DisconnectMqtt();
-                await Task.Delay(5000);
+                await Task.Delay(5000, stoppingToken);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex.ToString());
+                _logger.LogError("{ex}", ex);
                 await DisconnectMqtt();
                 throw;
             }

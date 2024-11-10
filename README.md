@@ -54,4 +54,6 @@ You don't need to set LATITUDE and LONGITUDE to your precise location (unlike wi
 I replaced an aging RPi3 running [piaware](https://github.com/flightaware/piaware) with a 4gb Rock64 running dump1090-fa. Here's a repo for getting this to run: [rtl-sdr-bsd](https://github.com/idatum/rtl-sdr-bsd). Here are more details of the overall project: [Experimenting with RTL-SDR on NetBSD 10](https://www.idatum.net/experimenting-with-rtl-sdr-on-netbsd-10.html).
 
 ## FreeBSD 14 on the Rock64 running [dump1090-fa](https://github.com/flightaware/dump1090)
-I've since switched from NetBSD 10 to running FreeBSD 14 on the Rock64 device and this resulted in a more stable host for dump1090. It's mainly about better support for RTL-SDR generally with USB on FreeBSD. Regardless of your O/S choice, adsb2mqtt should be able to connect to dump1090 and generate MQTT messages.
+I've since switched from NetBSD 10 to running FreeBSD 14 on the Rock64 device and this resulted in a more stable host for dump1090. It's mainly about better support for RTL-SDR generally with USB on FreeBSD. FreeBSD 14 also now supports .NET 8. 
+
+Regardless of your O/S choice, adsb2mqtt should be able to connect to dump1090 and generate MQTT messages.

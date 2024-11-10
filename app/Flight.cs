@@ -1,5 +1,4 @@
 namespace adsb2mqtt;
-
 using System;
 
 public struct Flight
@@ -9,7 +8,7 @@ public struct Flight
     public string Icao;
     public string Callsign
     {
-        get { return string.IsNullOrEmpty(callSign) ? Icao : callSign; }
+        readonly get { return string.IsNullOrEmpty(callSign) ? Icao : callSign; }
         set { callSign = value; }
     }
     public string Altitude;
