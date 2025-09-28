@@ -12,10 +12,8 @@ using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 
 using MQTTnet;
-using MQTTnet.Client;
 using MQTTnet.Formatter;
 using MQTTnet.Protocol;
-using MQTTnet.Server;
 using MQTTnet.Exceptions;
 
 public class Dump1090Reader
@@ -180,7 +178,7 @@ public class Dump1090Reader
 
     private async Task<bool> ConnectMqtt(string username, string password, string host, int port, bool useTls)
     {
-        var mqttFactory = new MqttFactory();
+        var mqttFactory = new MqttClientFactory();
         var tlsOptions = new MqttClientTlsOptions
         {
             UseTls = useTls
