@@ -22,7 +22,7 @@ public class Worker : BackgroundService
     {
         _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
         var reader = new Dump1090Reader(_logger, _configuration, _findAircraftType);
-        while (!stoppingToken.IsCancellationRequested)
+        if (!stoppingToken.IsCancellationRequested)
         {
             await reader.ProcessAsync(stoppingToken);
         }

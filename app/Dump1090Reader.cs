@@ -96,8 +96,7 @@ public class Dump1090Reader
         foreach (IPAddress address in hostEntry.AddressList)
         {
             IPEndPoint ipe = new(address, port);
-            var tempSocket =
-                new Socket(ipe.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            var tempSocket = new Socket(ipe.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
             tempSocket.Connect(ipe);
 
@@ -260,7 +259,9 @@ public class Dump1090Reader
 
     private void ReceiveDump1090(string server, int port, CancellationToken stoppingToken)
     {
+        _logger.LogDebug("Connecting to Dump1090 at {server}:{port}", server, port);
         using var socket = ConnectSocket(server, port) ?? throw new ApplicationException("Socket connection failed");
+        _logger.LogDebug("Connected to Dump1090");
         var readBuffer = new Byte[1024];
         int bytesRead = 0;
         var recordBytes = new List<Byte>();
@@ -346,11 +347,12 @@ public class Dump1090Reader
             catch (SocketException ex)
             {
                 _logger.LogWarning("{ex.Message}", ex.Message);
+                await DisconnectMqtt();
                 await Task.Delay(5000, stoppingToken);
             }
             catch (MqttCommunicationException ex)
             {
-                _logger.LogError("{ex}", ex);
+                _logger.LogWarning("{ex}", ex);
                 await DisconnectMqtt();
                 await Task.Delay(5000, stoppingToken);
             }
